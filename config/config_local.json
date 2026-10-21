@@ -1,0 +1,184 @@
+{
+  "profile": "local",
+  "data_root": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes",
+  "project_root": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/crop_suitability_code_bdap",
+  "aliases": {
+    "tasmax": [
+      "tasmax",
+      "mx2t",
+      "tmax",
+      "t2m_max",
+      "Temperature_Air_2m_Max_24h"
+    ],
+    "tasmin": [
+      "tasmin",
+      "mn2t",
+      "tmin",
+      "t2m_min",
+      "Temperature_Air_2m_Min_24h"
+    ],
+    "pr": [
+      "pr",
+      "tp",
+      "precip",
+      "precipitation",
+      "Precipitation_Flux"
+    ],
+    "dswrf": [
+      "dswrf",
+      "ssrd",
+      "rsds",
+      "msdwswrf",
+      "Solar_Radiation_Flux"
+    ],
+    "ssrd": [
+      "rsds",
+      "ssrd",
+      "dswrf",
+      "msdwswrf"
+    ],
+    "et0": [
+      "ET0",
+      "et0",
+      "ReferenceET",
+      "Reference_evapotranspiration",
+      "pet"
+    ]
+  },
+  "datasets": {
+    "era5": {
+      "kind": "netcdf",
+      "used_by": "0.1, 1.a, 2.f",
+      "vars": [
+        "tasmax",
+        "tasmin",
+        "pr",
+        "dswrf"
+      ],
+      "template": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/crops_suitability_codes/0_Input_data/ERA5 data/{var}_ERA5_1981_2015_daily_025deg.nc",
+      "patterns": {
+        "tasmax": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/crops_suitability_codes/0_Input_data/ERA5 data/tasmax_ERA5_1981_2015_daily_025deg.nc",
+        "tasmin": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/crops_suitability_codes/0_Input_data/ERA5 data/tasmin_ERA5_1981_2015_daily_025deg.nc",
+        "pr": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/crops_suitability_codes/0_Input_data/ERA5 data/pr_ERA5_1981_2015_daily_025deg.nc",
+        "dswrf": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/crops_suitability_codes/0_Input_data/ERA5 data/dswrf_ERA5_1981_2015_daily_025deg.nc"
+      }
+    },
+    "agera5_et0": {
+      "kind": "netcdf",
+      "used_by": "1.a",
+      "vars": [
+        "et0"
+      ],
+      "template": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/crops_suitability_codes/0_Input_data/ERA5 data/AgERA5/Reference evapotranspiration/*.nc",
+      "patterns": {
+        "et0": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/crops_suitability_codes/0_Input_data/ERA5 data/AgERA5/Reference evapotranspiration/*.nc"
+      }
+    },
+    "isimip_mri_ssp585": {
+      "kind": "netcdf",
+      "used_by": "1.2.a, 7.b, 7.e",
+      "vars": [
+        "tasmax",
+        "tasmin",
+        "pr",
+        "ssrd"
+      ],
+      "template": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/crops_suitability_codes/0_Input_data/ISIMIP_MRI-ESM2-0/ssp585/{var}/mri-esm2-0_r1i1p1f1_w5e5_ssp585_*_global_daily_*.nc",
+      "patterns": {
+        "tasmax": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/crops_suitability_codes/0_Input_data/ISIMIP_MRI-ESM2-0/ssp585/tasmax/mri-esm2-0_r1i1p1f1_w5e5_ssp585_*_global_daily_*.nc",
+        "tasmin": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/crops_suitability_codes/0_Input_data/ISIMIP_MRI-ESM2-0/ssp585/tasmin/mri-esm2-0_r1i1p1f1_w5e5_ssp585_*_global_daily_*.nc",
+        "pr": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/crops_suitability_codes/0_Input_data/ISIMIP_MRI-ESM2-0/ssp585/pr/mri-esm2-0_r1i1p1f1_w5e5_ssp585_*_global_daily_*.nc",
+        "ssrd": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/crops_suitability_codes/0_Input_data/ISIMIP_MRI-ESM2-0/ssp585/ssrd/mri-esm2-0_r1i1p1f1_w5e5_ssp585_*_global_daily_*.nc"
+      }
+    },
+    "hwsd_raster": {
+      "kind": "raster",
+      "used_by": "2.a, 2.c, 2.d, 2.e, 5.a-5.d",
+      "vars": [],
+      "template": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/crops_suitability_codes/0_Input_data/soil/HWSD2.bil",
+      "patterns": {
+        "file": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/crops_suitability_codes/0_Input_data/soil/HWSD2.bil"
+      }
+    },
+    "hwsd_mdb": {
+      "kind": "table",
+      "used_by": "2.a, 2.c",
+      "vars": [],
+      "template": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/crops_suitability_codes/0_Input_data/soil/HWSD2.mdb",
+      "patterns": {
+        "file": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/crops_suitability_codes/0_Input_data/soil/HWSD2.mdb"
+      }
+    },
+    "dem_slope": {
+      "kind": "raster",
+      "used_by": "2.a (optional)",
+      "vars": [],
+      "template": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/crops_suitability_codes/0_Input_data/soil/DEM_slope.tif",
+      "patterns": {
+        "file": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/crops_suitability_codes/0_Input_data/soil/DEM_slope.tif"
+      }
+    },
+    "gaez_slope": {
+      "kind": "raster",
+      "used_by": "2.f",
+      "vars": [],
+      "template": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/crops_suitability_codes/0_Input_data/terrain/SLOPE-MED.tif",
+      "patterns": {
+        "file": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/crops_suitability_codes/0_Input_data/terrain/SLOPE-MED.tif"
+      }
+    },
+    "gaez_v5_hist": {
+      "kind": "raster",
+      "used_by": "5.a-5.f",
+      "vars": [],
+      "template": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/crops_suitability_codes/1_check_GAEZ/gaez_v5_hp8100/GAEZ-V5.RES05-SIX.HP8100.AGERA5.HIST.*.tif",
+      "patterns": {
+        "file": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/crops_suitability_codes/1_check_GAEZ/gaez_v5_hp8100/GAEZ-V5.RES05-SIX.HP8100.AGERA5.HIST.*.tif"
+      }
+    },
+    "gaez_v5_future": {
+      "kind": "raster",
+      "used_by": "5.g.bis",
+      "vars": [],
+      "template": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/crops_suitability_codes/1_check_GAEZ/gaez_v5_future_mri_esm2_ssp585/GAEZ-V5.RES05-SXX.FP6180.MRI-ESM2-0.SSP585.*.tif",
+      "patterns": {
+        "file": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/crops_suitability_codes/1_check_GAEZ/gaez_v5_future_mri_esm2_ssp585/GAEZ-V5.RES05-SXX.FP6180.MRI-ESM2-0.SSP585.*.tif"
+      }
+    },
+    "amoc_ba_ecearth": {
+      "kind": "netcdf",
+      "used_by": "2.f (AMOC scenarios)",
+      "vars": [
+        "pr"
+      ],
+      "template": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/bias adjustment_codes/5)ECearth/3)BA/outputs_BA/1deg/pr_adj_*.nc",
+      "patterns": {
+        "pr": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/bias adjustment_codes/5)ECearth/3)BA/outputs_BA/1deg/pr_adj_*.nc"
+      }
+    },
+    "amoc_ba_20cr": {
+      "kind": "netcdf",
+      "used_by": "2.f (AMOC scenarios)",
+      "vars": [
+        "pr"
+      ],
+      "template": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/bias adjustment_codes/1) 20CR solution/4) bias_adjustment/outputs_BA/1deg/pr_adj_*_combined.nc",
+      "patterns": {
+        "pr": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/bias adjustment_codes/1) 20CR solution/4) bias_adjustment/outputs_BA/1deg/pr_adj_*_combined.nc"
+      }
+    }
+  },
+  "unit_hints": {
+    "era5/tasmax": "ok (degC)",
+    "era5/tasmin": "ok (degC)",
+    "era5/pr": "ok (mm/day)",
+    "era5/dswrf": "ok (W m-2)",
+    "agera5_et0/et0": "ok (mm/day)",
+    "isimip_mri_ssp585/tasmax": "- 273.15 -> degC",
+    "isimip_mri_ssp585/tasmin": "- 273.15 -> degC",
+    "isimip_mri_ssp585/pr": "x 86400 -> mm/day",
+    "isimip_mri_ssp585/ssrd": "ok (W m-2)",
+    "amoc_ba_ecearth/pr": "ok (mm/day)",
+    "amoc_ba_20cr/pr": "ok (mm/day)"
+  }
+}

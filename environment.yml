@@ -1,0 +1,31 @@
+# Environnement conda du pipeline crop suitability (SVM + sol GAEZ), pour BDAP (Linux).
+#   conda env create -f environment.yml
+#   conda activate crop_suitability
+#   python -m ipykernel install --user --name crop_suitability --display-name "Python (crop_suitability)"
+# puis choisir le kernel "Python (crop_suitability)" dans JupyterLab.
+name: crop_suitability
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  # calcul / donnees
+  - numpy>=2.1
+  - pandas>=2.2
+  - xarray>=2025.1
+  - netcdf4>=1.7          # backend NetCDF de xarray
+  - cftime>=1.6           # decodage des dates (calendriers ISIMIP / CMIP)
+  - scipy>=1.14
+  - scikit-learn>=1.5
+  - joblib>=1.4
+  # geospatial
+  - rasterio>=1.4         # GeoTIFF (HWSD, GAEZ, pente, MIRCA-OS)
+  - regionmask>=0.13      # masques terre / pays Natural Earth
+  - geopandas>=1.0
+  - shapely>=2.0
+  - pooch>=1.8            # cache des telechargements Natural Earth de regionmask
+  # figures / fichiers
+  - matplotlib>=3.9
+  - openpyxl>=3.1         # annexes GAEZ (.xlsx)
+  # jupyter
+  - ipykernel
+  - papermill            # execution parametree des notebooks (executed_notebooks/)

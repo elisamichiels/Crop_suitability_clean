@@ -1,0 +1,126 @@
+"""
+crop_utils.py - helpers shared by all notebooks of the crop-suitability pipeline (1_SVM/...).
+
+Lives at the project root, next to 00_config_and_inventory.ipynb (locally and on BDAP).
+No data path is defined here: everything comes from config/config_<profile>.json, written by notebook 00.
+Only pathlib / forward-slash paths are used, so the code runs unchanged on Linux (BDAP JupyterLab) and Windows.
+
+Typical use at the top of a notebook (after BASE is found):
+    sys.path.insert(0, str(BASE)); import crop_utils as cu
+    CFG = cu.load_config()
+    ERA5_DIR = cu.data_dir(CFG, "era5")              # folder of a dataset
+    HWSD_TIF = cu.data_file(CFG, "hwsd_raster")      # one file
+    files    = cu.data_files(CFG, "isimip_mri_ssp585", "pr")   # all files of one variable
+"""
+import glob
+import json
+import os
+os.environ.setdefault("HDF5_USE_FILE_LOCKING", "FALSE")   # BDAP/EOS refuses HDF5 file locks ("NetCDF: HDF error")
+import re
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parent
+CONFIG_DIR = PROJECT_ROOT / "config"
+
+REQUIRED_PACKAGES = ["numpy", "pandas", "xarray", "netCDF4", "cftime", "scipy", "sklearn", "joblib",
+                     "matplotlib", "rasterio", "regionmask", "geopandas", "shapely", "openpyxl"]
+
+
+# --------------------------------------------------------------------------
+# 1. Configuration
+# --------------------------------------------------------------------------
+def on_bdap():
+    return Path("/eos/jeodpp").exists()
+
+
+def profile():
+    return "bdap" if on_bdap() else "local"
+
+
+def find_config(path=None):
+    """Locate config_<profile>.json written by notebook 00 (or the CROP_CONFIG environment variable)."""
+    if path:
+        return Path(path)
+    if os.environ.get("CROP_CONFIG"):
+        return Path(os.environ["CROP_CONFIG"])
+    p = CONFIG_DIR / f"config_{profile()}.json"
+    if p.exists():
+        return p
+    raise FileNotFoundError(f"{p} not found. Run 00_config_and_inventory.ipynb first (or set CROP_CONFIG).")
+
+
+def load_config(path=None, verbose=True):
+    p = find_config(path)
+    cfg = json.loads(p.read_text(encoding="utf-8"))
+    cfg["_config_file"] = str(p)
+    if verbose:
+        print(f"Config: {p}  (profile = {cfg['profile']})")
+    return cfg
+
+
+# --------------------------------------------------------------------------
+# 2. Dataset paths
+# --------------------------------------------------------------------------
+def _patterns(cfg, name, var=None):
+    """Pattern(s) of one dataset; `var` = one of its variables (None = first one / no variable)."""
+    pats = cfg["datasets"][name]["patterns"]
+    key = var if var is not None else next(iter(pats))
+    p = pats[key]
+    return p if isinstance(p, list) else [p]
+
+
+def is_filled(pattern):
+    return bool(pattern) and "TO_FILL" not in pattern
+
+
+def data_files(cfg, name, var=None):
+    """All files of a dataset (and variable), sorted; [] while the pattern is still TO_FILL."""
+    pats = _patterns(cfg, name, var)
+    if not all(is_filled(p) for p in pats):
+        return []
+    return sorted(f for p in pats for f in glob.glob(p))
+
+
+def data_file(cfg, name, var=None):
+    """The single file of a dataset. While not found, returns the (non-existing) pattern itself, so that
+    `.exists()` is False and any read fails with a message that shows the path to fill in."""
+    files = data_files(cfg, name, var)
+    if len(files) > 1:
+        raise ValueError(f"{name}: {len(files)} files match {_patterns(cfg, name, var)} but one is expected:\n  "
+                         + "\n  ".join(files[:10]))
+    return Path(files[0]) if files else Path(_patterns(cfg, name, var)[0])
+
+
+def data_dir(cfg, name):
+    """Folder of a dataset = the part of its pattern (with {var} still in it) before the first wildcard.
+    While the pattern is still TO_FILL, returns it as is, so that any read fails showing what to fill in."""
+    p = cfg["datasets"][name]["template"]
+    p = p[0] if isinstance(p, list) else p
+    if not is_filled(p):
+        return Path(p)
+    m = re.search(r"[*?\[{]", p)
+    if not m:
+        return Path(p).parent
+    head = p[:m.start()]
+    return Path(head) if head.endswith("/") else Path(head).parent
+
+
+# --------------------------------------------------------------------------
+# 3. Environment
+# --------------------------------------------------------------------------
+def check_environment():
+    """Print which required Python packages are available (call at the top of a notebook)."""
+    import importlib
+    missing = []
+    for mod in REQUIRED_PACKAGES:
+        try:
+            m = importlib.import_module(mod)
+            print(f"  ok       {mod:11s} {getattr(m, '__version__', '')}")
+        except Exception:
+            print(f"  MISSING  {mod}")
+            missing.append(mod)
+    if missing:
+        names = {"sklearn": "scikit-learn"}
+        print("\nInstall in your conda environment (or create it from environment.yml), e.g.:")
+        print("  conda install -c conda-forge " + " ".join(names.get(m, m) for m in missing))
+    return missing

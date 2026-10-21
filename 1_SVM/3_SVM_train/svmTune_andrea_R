@@ -1,0 +1,244 @@
+# svmTune.R
+
+###############################################################################
+# SCRIPT:
+# Name:       svmTune.R
+# Date:       17 Jan 2018
+# Version:    0.0.1
+# Authors:    Sam Tozer (sam.tozer@heor.co.uk)
+#
+# Description:
+#             Function for building SVM models using k-fold cross validation
+#
+# Version History:
+# -----------------------------------------------------------------------------
+# - Version:  0.0.1
+# - Date:     17 Jan 2018
+# - Author:   Sam Tozer
+# - Changes:  Original version
+# -----------------------------------------------------------------------------
+###############################################################################
+
+
+computeAUC <- function(actuals, predictions){
+  x <- predictions 
+  y <- actuals  
+  x1 = x[y==1]; n1 = length(x1); 
+  x2 = x[y==0]; n2 = length(x2); 
+  r = rank(c(x1,x2))
+  auc = (sum(r[1:n1]) - n1*(n1+1)/2) / n1 / n2 
+  return(auc) 
+}
+
+
+#' Builds SVM model using k-fold cross validation and appends its result 
+#' to global data.frame cv_output.
+#' 
+#' @param x data.frame of predictors 
+#' @param y data.frame of single response variable (factor) 
+#' @param folds integer - number of folds in the cross validation 
+#' @param cost.v float - cost parameter value, uses 1 if left unspecified 
+#' @param gamma.v float - gamma parameter value, uses 1/dim(df) if left unspecified 
+#' @param kernel.t character - character string specifying the kernel to use. Defaults to radial 
+cv.svm = function(x, 
+                  y,
+                  folds,
+                  cost.v = NULL, 
+                  gamma.v = NULL, 
+                  kernel.t = NULL)
+{
+  
+  
+  fold.index = sample(rep(1:folds,
+                          length.out = nrow(x)
+  )  
+  ) 
+  
+  cv_temp <<- matrix(data = NA,
+                     nrow = 8,
+                     ncol = folds)
+  
+  cv_carry = data.frame(
+    Kernel = NA, 
+    Cost = NA,
+    Gamma = NA, 
+    CV_AUC = NA,
+    CV_SPEC=NA,
+    CV_BA=NA,
+    CV_F1=NA,
+    CV_DR=NA,
+    CV_SENS=NA,
+    CV_PPV=NA,
+    CV_kappa=NA
+  )
+
+  
+  metrics = c()
+  
+  for (k in 1:folds)
+  {
+   
+    test_ind = which(fold.index == k)
+    train.x = x[-test_ind, ]
+    train.y = y[-test_ind]
+    test.x = x[test_ind, ]
+    test.y = y[test_ind]
+    
+    # cross validation 
+    cases = which(train.y==1)
+    zeros = which(train.y==0)
+    imb.ratio = length(cases)/length(zeros)
+    
+    
+    myweight=rep(1,length(train.y))
+    myweight[which(train.y==0)] = imb.ratio
+    
+    train.y[train.y==0] = -1
+    
+    train.x.m1 = apply(X=train.x, FUN=function(x){return((x-mean(x,na.rm=TRUE))/(sd(x, na.rm=TRUE)))}, MARGIN=2)
+    scales = data.frame(center=colMeans(train.x), scale=apply(X=train.x, MARGIN=c(2), FUN=sd))
+    #train.y.lab = (train.y - mean(train.y, na.rm=TRUE)) / sd(train.y, na.rm=TRUE)
+    
+    
+    mysvm = svm(x=train.x.m1,y=as.factor(train.y), kernel='radial',class.weigths=myweight, gamma=gamma.v, cost = cost.v) #here we can also add iteration with cross-val to optimise C and gamma for the Kernel
+    mysv = as.integer(row.names(mysvm$SV))
+    
+    mysv.1 = length(which(train.y[mysv]==1)) #test.lab is the label vector of the training data set {1,-1}
+    mysv.m1 = length(which(train.y[mysv]==-1)) #-1 must be given to the class with larger samples
+    
+    sv.ratio = mysv.1/mysv.m1
+    
+    ovsamp = (1/sv.ratio)
+    
+    nadd = (mysv.1*ovsamp)-mysv.1 
+    
+    
+    lv = Fsmote(train.x.m1[which(train.y[mysv]==1),],fulls=train.x.m1[which(train.y==1),],k=5,N=nadd,gam=mysvm$gamma) 
+    
+    newtrain= rbind(train.x.m1,lv)
+    newtrain.l = c(train.y,rep(1,length(lv[,1])))
+    mysvm = svm(x=newtrain,y=as.factor(newtrain.l),kernel='radial',class.weigths=c(myweight,rep(1,length(lv[,1]))), gamma=gamma.v, cost=cost.v)
+    
+    test.x.m1 = test.x
+    for(i in 1:dim(test.x)[2])
+      test.x.m1[,i] = (test.x.m1[,i] - scales$center[i]) / scales$scale[i]
+    
+    pred = predict(mysvm, test.x.m1)
+    #auc = computeAUC(test.y, attr(pred, "probabilities")[, 1])
+    test.y[test.y==0] = -1
+    roc_ = roc(test.y, as.numeric(as.character(pred)), levels=c("-1", "1"), auc=TRUE)#, "probabilities")[, 1])
+    conf.matrix = confusionMatrix(pred, as.factor(test.y), positive = "1")
+    cv_temp[1, k] <- roc_$auc
+    cv_temp[2, k] <- conf.matrix[["byClass"]][["Sensitivity"]]
+    cv_temp[3, k] <- conf.matrix[["byClass"]][["Specificity"]]
+    cv_temp[4, k] <- conf.matrix[["byClass"]][["F1"]]
+    cv_temp[5, k] <- conf.matrix[["byClass"]][["Balanced Accuracy"]]
+    cv_temp[6, k] <- conf.matrix[["byClass"]][["Detection Rate"]]
+    cv_temp[7, k] <- conf.matrix[["byClass"]][["Pos Pred Value"]]
+    cv_temp[8, k] <- conf.matrix[["overall"]][["Kappa"]]
+    print(roc_$auc)
+  }
+ 
+  
+  cv_carry[, 'Kernel'] = ifelse(is.null(kernel.t), 'radial', as.character(kernel.t))
+  cv_carry[, 'Cost'] = ifelse(is.null(cost.v), 1, cost.v)
+  cv_carry[, 'Gamma'] = ifelse(is.null(gamma.v), 1 / dim(train.x)[1], gamma.v)
+  cv_carry[, 'CV_AUC'] = sum(cv_temp[1,]) / folds
+  cv_carry[, 'CV_SENS'] = sum(cv_temp[2,]) / folds
+  cv_carry[, 'CV_SPEC'] = sum(cv_temp[3,]) / folds
+  cv_carry[, 'CV_F1'] = sum(cv_temp[4,]) / folds
+  cv_carry[, 'CV_BA'] = sum(cv_temp[5,]) / folds
+  cv_carry[, 'CV_DR'] = sum(cv_temp[6,]) / folds
+  cv_carry[, 'CV_PPV'] = sum(cv_temp[7,]) / folds
+  cv_carry[, 'CV_kappa'] = sum(cv_temp[8,]) / folds
+  
+  
+  print(cv_carry)
+  return(cv_carry)
+}
+
+svmFit = function(x,y) {
+  
+  cases = which(y==1)
+  zeros = which(y==0)
+  imb.ratio = length(cases)/length(zeros)
+  
+  
+  myweight=rep(1,length(y))
+  myweight[which(y==0)] = imb.ratio
+  
+  y[y==0] = -1
+  
+  x.m1 = apply(X=x, FUN=function(x){return((x-mean(x,na.rm=TRUE))/(sd(x, na.rm=TRUE)))}, MARGIN=2)
+  scales = data.frame(center=colMeans(x), scale=apply(X=x, MARGIN=c(2), FUN=sd))
+  #train.y.lab = (train.y - mean(train.y, na.rm=TRUE)) / sd(train.y, na.rm=TRUE)
+  
+  
+  mysvm = svm(x=x.m1,y=as.factor(y), kernel='radial',class.weigths=myweight, gamma=2, cost = 8) #here we can also add iteration with cross-val to optimise C and gamma for the Kernel
+  mysv = as.integer(row.names(mysvm$SV))
+  
+  mysv.1 = length(which(y[mysv]==1)) #test.lab is the label vector of the training data set {1,-1}
+  mysv.m1 = length(which(y[mysv]==-1)) #-1 must be given to the class with larger samples
+  
+  sv.ratio = mysv.1/mysv.m1
+  
+  ovsamp = (1/sv.ratio)
+  
+  nadd = (mysv.1*ovsamp)-mysv.1 
+  
+  
+  lv = Fsmote(x.m1[which(y[mysv]==1),],fulls=x.m1[which(y==1),],k=5,N=nadd,gam=mysvm$gamma) 
+  
+  newtrain= rbind(x.m1,lv)
+  newtrain.l = c(y,rep(1,length(lv[,1])))
+  mysvm = svm(x=newtrain,y=as.factor(newtrain.l),kernel='radial',class.weigths=c(myweight,rep(1,length(lv[,1]))), gamma=2, cost=8)
+  
+  return(mysvm)
+}
+  
+  
+varImpo = function(x) {
+  set.seed(12345)
+  varimp_df = NULL
+  ptm1=proc.time()
+  x[,1] = as.factor(x[,1])
+  for(i in 2:ncol(x)) {
+    smp_size = floor(0.9*nrow(x))
+    
+    train_ind = sample(seq_len(nrow(x)), size=smp_size)
+    training = x[train_ind, -c(i)]
+    testing = x[-train_ind, -c(i)]
+    
+#    tune.out.radial = tune(svm, durum~., data=training,
+#                   scale = TRUE,
+#                   type = "C-classification",
+#                   kernel = 'radial', 
+#                   ranges=list(gamma=c(0.1,3), cost=c(0.1,3)),
+#                   probability = TRUE)
+    
+    svm.radial = svm(durum~., data=training, 
+                     scale = TRUE,
+                     type = "C-classification",
+                     gamma = 3, #tune.out.radial[["best.parameters"]][["gamma"]], 
+                     cost = 3, # tune.out.radial[["best.parameters"]][["cost"]], 
+                     kernel = 'radial', 
+                     probability = TRUE)
+    
+    train.pred.radial = predict(svm.radial, testing)
+    testing_y = as.factor(testing$durum)
+    conf.matrix.svm.radial = confusionMatrix(train.pred.radial, testing_y)
+    varimp_df = rbind(varimp_df, data.frame(
+      var_no = i,
+      variable=colnames(x)[i],
+      cost_param=3, #tune.out.radial[["best.parameters"]][["cost"]],
+      gamma_param=3, #tune.out.radial[["best.parameters"]][["gamma"]],
+      accuracy=conf.matrix.svm.radial[["overall"]][["Accuracy"]],
+      kappa=conf.matrix.svm.radial[["overall"]][["Kappa"]],
+      sensitivity=conf.matrix.svm.radial[["byClass"]][["Sensitivity"]],
+      specificity=conf.matrix.svm.radial[["byClass"]][["Specificity"]]
+    ))
+    runtime1 = as.data.frame(t(data.matrix(proc.time()-ptm1)))$elapsed
+    print(runtime1)
+  }
+  
+}

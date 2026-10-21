@@ -1,0 +1,67 @@
+#SVM for unbalanced dataset
+
+#rm(list=objects())
+
+library(e1071)
+library(smotefamily)
+library(purrr)
+
+kern.dist = function(x,gam){
+
+  if(sum(x)==0){z=NA;return(z)}
+  
+  z = exp((-gam)*(sum(x^2))^2)
+  
+  return(z)
+  
+}
+
+
+
+Fsmote = function(x,fulls,k=5,N,gam){
+ 
+  if(N<length(x[,1])){
+    
+    myi = rdunif(N,length(x[,1]),1)
+    ax=1    
+  }else{
+        myi = 1:length(x[,1])
+        ax = round(N/length(x[,1]),digit=0)
+      }
+  
+  lv= c()
+  
+  for(i in myi){
+    
+    rx = do.call("rbind", replicate(length(fulls[,1]), x[i,], simplify = FALSE))
+    
+    xdiff = rx-fulls  
+    
+    kdist = apply(xdiff,MARGIN = 1,FUN=kern.dist,gam) 
+
+    x1 = which.min(kdist)
+    kdist[x1]=NA
+    x2 = which.min(kdist)
+    kdist[x2]=NA
+    x3 = which.min(kdist)
+    kdist[x3]=NA
+    x4 = which.min(kdist)
+    kdist[x4]=NA
+    x5 = which.min(kdist)
+    xaa = c(x1,x2,x3,x4,x5)
+    selx = rdunif(ax,5,1)
+    
+    for(j in selx){
+      
+      lv = rbind(lv,x[i,]-fulls[xaa[j]]/2) #TO BE IMPROVED and DONE In the feature space solving a pre-image problem
+      
+      
+    }
+        
+  }
+  return(lv)
+  
+}
+
+
+
