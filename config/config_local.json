@@ -91,6 +91,91 @@
         "ssrd": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/crops_suitability_codes/0_Input_data/ISIMIP_MRI-ESM2-0/ssp585/ssrd/mri-esm2-0_r1i1p1f1_w5e5_ssp585_*_global_daily_*.nc"
       }
     },
+    "gcm_historical": {
+      "kind": "netcdf",
+      "used_by": "delta method (to come)",
+      "vars": [
+        "tasmax",
+        "tasmin",
+        "pr",
+        "ssrd"
+      ],
+      "template": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/bias adjustment_codes/0)Input_data/EC-Earth3/historical_raw/{var}_day_EC-Earth3_historical_r1i1p1f1_gr_*.nc",
+      "patterns": {
+        "tasmax": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/bias adjustment_codes/0)Input_data/EC-Earth3/historical_raw/tasmax_day_EC-Earth3_historical_r1i1p1f1_gr_*.nc",
+        "tasmin": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/bias adjustment_codes/0)Input_data/EC-Earth3/historical_raw/tasmin_day_EC-Earth3_historical_r1i1p1f1_gr_*.nc",
+        "pr": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/bias adjustment_codes/0)Input_data/EC-Earth3/historical_raw/pr_day_EC-Earth3_historical_r1i1p1f1_gr_*.nc",
+        "ssrd": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/bias adjustment_codes/0)Input_data/EC-Earth3/historical_raw/rsds_day_EC-Earth3_historical_r1i1p1f1_gr_*.nc"
+      }
+    },
+    "gcm_2025_nohosing": {
+      "kind": "netcdf",
+      "used_by": "delta method (to come)",
+      "vars": [
+        "tasmax",
+        "tasmin",
+        "pr",
+        "ssrd"
+      ],
+      "template": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/TO_FILL/gcm_2025_original/{var}/*.nc",
+      "patterns": {
+        "tasmax": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/TO_FILL/gcm_2025_original/tasmax/*.nc",
+        "tasmin": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/TO_FILL/gcm_2025_original/tasmin/*.nc",
+        "pr": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/TO_FILL/gcm_2025_original/pr/*.nc",
+        "ssrd": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/TO_FILL/gcm_2025_original/ssrd/*.nc"
+      }
+    },
+    "gcm_2025_hosing": {
+      "kind": "netcdf",
+      "used_by": "delta method (to come)",
+      "vars": [
+        "tasmax",
+        "tasmin",
+        "pr",
+        "ssrd"
+      ],
+      "template": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/TO_FILL/gcm_2025_hosing/{var}/*.nc",
+      "patterns": {
+        "tasmax": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/TO_FILL/gcm_2025_hosing/tasmax/*.nc",
+        "tasmin": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/TO_FILL/gcm_2025_hosing/tasmin/*.nc",
+        "pr": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/TO_FILL/gcm_2025_hosing/pr/*.nc",
+        "ssrd": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/TO_FILL/gcm_2025_hosing/ssrd/*.nc"
+      }
+    },
+    "gcm_2050_nohosing": {
+      "kind": "netcdf",
+      "used_by": "delta method (to come)",
+      "vars": [
+        "tasmax",
+        "tasmin",
+        "pr",
+        "ssrd"
+      ],
+      "template": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/TO_FILL/gcm_2050_original/{var}/*.nc",
+      "patterns": {
+        "tasmax": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/TO_FILL/gcm_2050_original/tasmax/*.nc",
+        "tasmin": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/TO_FILL/gcm_2050_original/tasmin/*.nc",
+        "pr": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/TO_FILL/gcm_2050_original/pr/*.nc",
+        "ssrd": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/TO_FILL/gcm_2050_original/ssrd/*.nc"
+      }
+    },
+    "gcm_2050_hosing": {
+      "kind": "netcdf",
+      "used_by": "delta method (to come)",
+      "vars": [
+        "tasmax",
+        "tasmin",
+        "pr",
+        "ssrd"
+      ],
+      "template": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/TO_FILL/gcm_2050_hosing/{var}/*.nc",
+      "patterns": {
+        "tasmax": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/TO_FILL/gcm_2050_hosing/tasmax/*.nc",
+        "tasmin": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/TO_FILL/gcm_2050_hosing/tasmin/*.nc",
+        "pr": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/TO_FILL/gcm_2050_hosing/pr/*.nc",
+        "ssrd": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/TO_FILL/gcm_2050_hosing/ssrd/*.nc"
+      }
+    },
     "hwsd_raster": {
       "kind": "raster",
       "used_by": "2.a, 2.c, 2.d, 2.e, 5.a-5.d",
@@ -178,6 +263,10 @@
     "isimip_mri_ssp585/tasmin": "- 273.15 -> degC",
     "isimip_mri_ssp585/pr": "x 86400 -> mm/day",
     "isimip_mri_ssp585/ssrd": "ok (W m-2)",
+    "gcm_historical/tasmax": "- 273.15 -> degC",
+    "gcm_historical/tasmin": "- 273.15 -> degC",
+    "gcm_historical/pr": "x 86400 -> mm/day",
+    "gcm_historical/ssrd": "ok (W m-2)",
     "amoc_ba_ecearth/pr": "ok (mm/day)",
     "amoc_ba_20cr/pr": "ok (mm/day)"
   }
