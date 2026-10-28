@@ -105,6 +105,17 @@ def data_dir(cfg, name):
     return Path(head) if head.endswith("/") else Path(head).parent
 
 
+def hwsd_connect(path):
+    """Connection to the HWSD v2 attribute database, for pandas.read_sql: HWSD2.sqlite (any platform, written from the
+    .mdb by hwsd2_mdb_to_sqlite.py) or HWSD2.mdb (Windows only: pyodbc + Microsoft Access driver)."""
+    path = Path(path)
+    if path.suffix.lower() in (".sqlite", ".db"):
+        import sqlite3
+        return sqlite3.connect(f"file:{path.as_posix()}?mode=ro", uri=True)
+    import pyodbc
+    return pyodbc.connect(r"DRIVER={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=" + str(path) + ";")
+
+
 # --------------------------------------------------------------------------
 # 3. Environment
 # --------------------------------------------------------------------------
