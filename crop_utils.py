@@ -117,7 +117,77 @@ def hwsd_connect(path):
 
 
 # --------------------------------------------------------------------------
-# 3. Environment
+# 3. SVM grid = EC-Earth3 grid (0.7 deg, global)
+# --------------------------------------------------------------------------
+SVM_GRID_DIR = PROJECT_ROOT / "1_SVM" / "0_preprocessing_masks" / "outputs_ecearth3"   # written by notebook 0.1
+
+
+def lon180(lon):
+    """Longitudes in [-180, 180)."""
+    import numpy as np
+    return ((np.asarray(lon, float) + 180.0) % 360.0) - 180.0
+
+
+def _edges(c, lo=None, hi=None):
+    import numpy as np
+    c = np.asarray(c, float)
+    e = np.concatenate([[c[0] - (c[1] - c[0]) / 2], (c[1:] + c[:-1]) / 2, [c[-1] + (c[-1] - c[-2]) / 2]])
+    return e if lo is None else np.clip(e, lo, hi)
+
+
+def svm_grid(cfg):
+    """
+    Grid of the SVM: the EC-Earth3 grid (0.7 deg, global), the grid of the ERA5 file regridded with CDO, of EC-Earth3
+    historical and of the four runs. Read from an EC-Earth3 historical file: cell centres (lat ascending, lon in
+    [-180, 180) ascending) and cell edges (lat from lat_bnds, lon halfway between centres).
+    """
+    import numpy as np
+    import xarray as xr
+    with xr.open_dataset(data_files(cfg, "gcm_historical", "tasmax")[0]) as ds:
+        lat, lon = ds["lat"].values, ds["lon"].values
+        lat_b = ds["lat_bnds"].values if "lat_bnds" in ds else None
+    ol, lat = np.argsort(lat), np.sort(lat)
+    if lat_b is not None:
+        b = np.sort(lat_b[ol], axis=1)
+        lat_e = np.concatenate([b[:, 0], b[-1:, 1]])
+    else:
+        lat_e = _edges(lat, -90.0, 90.0)
+    lon = np.sort(lon180(lon))
+    return {"lat": lat, "lon": lon, "lat_edges": lat_e, "lon_edges": _edges(lon)}
+
+
+def cell_of(lat, lon, grid):
+    """(i, j) of the SVM cell containing the points (lat, lon) (arrays of the same shape); longitude periodic."""
+    import numpy as np
+    lat = np.asarray(lat, float)
+    lon = lon180(lon)
+    lon = np.where(lon >= grid["lon_edges"][-1], lon - 360.0, lon)
+    i = np.clip(np.searchsorted(grid["lat_edges"], lat, side="right") - 1, 0, grid["lat"].size - 1)
+    j = np.clip(np.searchsorted(grid["lon_edges"], lon, side="right") - 1, 0, grid["lon"].size - 1)
+    return i, j
+
+
+def to_svm_grid(da, grid):
+    """A climate field (ERA5 regridded, EC-Earth3 historical or a run) with lat ascending and lon in [-180, 180),
+    checked to be on the SVM grid."""
+    import numpy as np
+    ren = {k: v for k, v in (("latitude", "lat"), ("longitude", "lon")) if k in da.dims}
+    da = da.rename(ren) if ren else da
+    da = da.assign_coords(lon=lon180(da["lon"].values)).sortby("lon").sortby("lat")
+    if not (np.allclose(da["lat"].values, grid["lat"], atol=1e-3) and np.allclose(da["lon"].values, grid["lon"], atol=1e-3)):
+        raise ValueError("not on the SVM (EC-Earth3) grid")
+    return da.assign_coords(lat=grid["lat"], lon=grid["lon"])
+
+
+def land_mask(path=None):
+    """Land mask of the SVM grid (True = land), written by notebook 0.1."""
+    import xarray as xr
+    with xr.open_dataset(path or SVM_GRID_DIR / "land_mask_ecearth3.nc") as ds:
+        return ds["land_mask"].load() == 1
+
+
+# --------------------------------------------------------------------------
+# 4. Environment
 # --------------------------------------------------------------------------
 def check_environment():
     """Print which required Python packages are available (call at the top of a notebook)."""
