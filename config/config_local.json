@@ -269,5 +269,6 @@
     "gcm_historical/ssrd": "ok (W m-2)",
     "amoc_ba_ecearth/pr": "ok (mm/day)",
     "amoc_ba_20cr/pr": "ok (mm/day)"
-  }
+  },
+  "out_root": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/crop_suitability_code_bdap/outputs"
 }

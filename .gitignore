@@ -39,3 +39,6 @@ desktop.ini
 
 # Logs
 *.log
+
+# Outputs of the pipeline when run locally (on BDAP: elisa/Crop_suitability/outputs on EOS)
+outputs/
