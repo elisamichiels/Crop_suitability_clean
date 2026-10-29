@@ -201,6 +201,14 @@ def crop_mask(cfg, crop):
         return ds.load()
 
 
+def mirca_cropland(cfg):
+    """MIRCA2000 cropland of the SVM grid (True = harvested area > 0 of any of the 26 classes), notebook 0.1: the
+    background of the SVM training (absences only where other crops are grown)."""
+    import xarray as xr
+    with xr.open_dataset(out_dir(cfg, MASKS) / "mirca2000_any_crop_ecearth3.nc") as ds:
+        return ds["cropland"].load() == 1
+
+
 def _to_std_units(da, var):
     """degC for tasmax / tasmin, mm/day for pr, W m-2 for the radiation; error on unknown units."""
     u = str(da.attrs.get("units", "")).strip().lower().replace(" ", "").replace("**", "").replace("^", "")
