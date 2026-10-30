@@ -201,12 +201,41 @@ def crop_mask(cfg, crop):
         return ds.load()
 
 
-def mirca_cropland(cfg):
+def mirca_cropland(cfg, cell_area_thr=None):
     """MIRCA2000 cropland of the SVM grid (True = harvested area > 0 of any of the 26 classes), notebook 0.1: the
-    background of the SVM training (absences only where other crops are grown)."""
+    background of the SVM training (absences only where other crops are grown). With `cell_area_thr`, only the cells
+    where the cropland is more than that fraction of the land area of the cell (route cellareafrac)."""
     import xarray as xr
     with xr.open_dataset(out_dir(cfg, MASKS) / "mirca2000_any_crop_ecearth3.nc") as ds:
-        return ds["cropland"].load() == 1
+        ds = ds.load()
+    c = ds["cropland"] == 1
+    return c & (cell_area_frac(cfg, ds["area_ha"].values) > cell_area_thr) if cell_area_thr else c
+
+
+def land_area_ha(cfg):
+    """Land area (ha) of the cells of the SVM grid: cell area x land fraction of notebook 0.1 (Natural Earth)."""
+    import numpy as np
+    import xarray as xr
+    g = svm_grid(cfg)
+    r = 6371.0e3                                             # m
+    area = (r ** 2 * np.diff(np.sin(np.radians(g["lat_edges"])))[:, None]
+            * np.radians(np.diff(g["lon_edges"]))[None, :]) / 1e4
+    with xr.open_dataset(out_dir(cfg, MASKS) / "land_mask_ecearth3.nc") as ds:
+        return area * ds["land_frac"].values
+
+
+def cell_area_frac(cfg, area_ha):
+    """Fraction of the land area of each cell covered by `area_ha` (2-D, NaN = 0): the cell rule of the route
+    cellareafrac (pixel 5' no threshold, cell threshold on the true area fraction, as notebook 0.3 in Europe)."""
+    import numpy as np
+    la = land_area_ha(cfg)
+    return np.where(la > 0, np.nan_to_num(area_ha) / np.maximum(la, 1e-9), 0.0)
+
+
+def route(cell_area_thr=None):
+    """Name of the MIRCA2000 presence route in the output folders: mirca2000_no_threshold or
+    mirca2000_cellareafrac<thr>pct."""
+    return f"mirca2000_cellareafrac{100 * cell_area_thr:g}pct" if cell_area_thr else "mirca2000_no_threshold"
 
 
 def _to_std_units(da, var):
