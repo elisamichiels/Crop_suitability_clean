@@ -238,6 +238,35 @@ def route(cell_area_thr=None):
     return f"mirca2000_cellareafrac{100 * cell_area_thr:g}pct" if cell_area_thr else "mirca2000_no_threshold"
 
 
+def mess(X, ref):
+    """MESS (Elith et al. 2010, Methods Ecol. Evol. 1, 330-342) of the rows of X against the reference rows `ref`
+    (variables in columns): per variable, f = % of the reference below the value, similarity 2f (f <= 50),
+    2(100 - f) (50 < f < 100), and below the minimum / above the maximum the distance to it in % of the range
+    (negative); MESS = the smallest similarity over the variables. Returns (MESS, index of that variable)."""
+    import numpy as np
+    lo, hi = ref.min(axis=0), ref.max(axis=0)
+    rng = np.where(hi > lo, hi - lo, 1.0)
+    S = np.empty_like(X)
+    for k in range(X.shape[1]):
+        f = 100 * np.searchsorted(np.sort(ref[:, k]), X[:, k], side="left") / len(ref)
+        S[:, k] = np.where(f == 0, 100 * (X[:, k] - lo[k]) / rng[k],
+                  np.where(f <= 50, 2 * f,
+                  np.where(f < 100, 2 * (100 - f), 100 * (hi[k] - X[:, k]) / rng[k])))
+    return S.min(axis=1), S.argmin(axis=1)
+
+
+def nt2(X, ref):
+    """NT2 of ExDet (Mesgaran et al. 2014, Divers. Distrib. 20, 1147-1159): Mahalanobis distance of the rows of X to the
+    mean of the reference rows (covariance of the reference), divided by the largest distance among the reference
+    rows. NT2 > 1 = a combination of values outside the reference cloud, novel even when every variable is within its
+    range (which the MESS does not see)."""
+    import numpy as np
+    mu = ref.mean(axis=0)
+    icov = np.linalg.pinv(np.cov(ref, rowvar=False))
+    dist = lambda A: np.sqrt(np.maximum(np.einsum("ij,jk,ik->i", A - mu, icov, A - mu), 0.0))
+    return dist(X) / dist(ref).max()
+
+
 def _to_std_units(da, var):
     """degC for tasmax / tasmin, mm/day for pr, W m-2 for the radiation; error on unknown units."""
     u = str(da.attrs.get("units", "")).strip().lower().replace(" ", "").replace("**", "").replace("^", "")
