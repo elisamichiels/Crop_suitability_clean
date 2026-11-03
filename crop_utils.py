@@ -267,6 +267,19 @@ def nt2(X, ref):
     return dist(X) / dist(ref).max()
 
 
+
+def balanced_proba(p, n1, n0, eps=1e-9):
+    """Platt probability of the SVM brought to equal class priors. The SVM of 3.g is trained with balanced class
+    weights, but libsvm fits its Platt sigmoid on the unweighted training cells, so `predict_proba` carries the prior
+    of the training table (n1 presences, n0 absences). Prior correction of the odds (Saerens et al. 2002, Neural
+    Comput. 14, 21-41; Elkan 2001, IJCAI): logit p' = logit p - log(n1 / n0). Monotonic (same ranking and AUC);
+    numpy arrays or xarray DataArrays, NaN kept."""
+    import numpy as np
+    p = p.clip(eps, 1 - eps)
+    z = np.log(p / (1 - p)) - np.log(n1 / n0)
+    return 1 / (1 + np.exp(-z))
+
+
 def _to_std_units(da, var):
     """degC for tasmax / tasmin, mm/day for pr, W m-2 for the radiation; error on unknown units."""
     u = str(da.attrs.get("units", "")).strip().lower().replace(" ", "").replace("**", "").replace("^", "")
