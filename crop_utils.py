@@ -194,6 +194,22 @@ def land_mask(cfg):
         return ds["land_mask"].load() == 1
 
 
+def relief(cfg):
+    """RELIEF of notebook 0.5 on the SVM grid (standard deviation of the elevation of the land pixels of the cell, m):
+    a static predictor, the same for every scenario and crop (test 6 of 3.g)."""
+    import xarray as xr
+    with xr.open_dataset(out_dir(cfg, MASKS) / "relief_ecearth3.nc") as ds:
+        return ds["RELIEF"].load()
+
+
+def bio_array(ds, cols, cfg):
+    """The predictors `cols` of a BIO file (1.1.d / 1.3.a) stacked as (lat, lon, n_cols); RELIEF, static, is read from
+    the relief layer of 0.5 (it is not in the BIO files)."""
+    import numpy as np
+    rel = relief(cfg).values if "RELIEF" in cols else None
+    return np.stack([rel if c == "RELIEF" else ds[c].values for c in cols], axis=-1)
+
+
 def crop_mask(cfg, crop):
     """MIRCA2000 no-threshold presence, harvested area and calendar of `crop` (e.g. 'Maize_rf'), notebook 0.1."""
     import xarray as xr
