@@ -251,6 +251,15 @@
       "patterns": {
         "pr": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/bias adjustment_codes/1) 20CR solution/4) bias_adjustment/outputs_BA/1deg/pr_adj_*_combined.nc"
       }
+    },
+    "ggcmi_calendar": {
+      "kind": "netcdf",
+      "used_by": "0.1",
+      "vars": [],
+      "template": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/crops_suitability_codes/0_Input_data/crop_calendar/GGCMI_phase3/*_rf_ggcmi_crop_calendar_phase3_v1.01.nc4",
+      "patterns": {
+        "file": "C:/Users/elisa/OneDrive - Politecnico di Milano/PHD_codes/crops_suitability_codes/0_Input_data/crop_calendar/GGCMI_phase3/*_rf_ggcmi_crop_calendar_phase3_v1.01.nc4"
+      }
     }
   },
   "unit_hints": {
