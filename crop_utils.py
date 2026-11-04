@@ -311,6 +311,19 @@ def tss_threshold(score, label, step=0.01):
     return float(t[k]), float(sens[k] + spec[k] - 1), float(sens[k]), float(spec[k])
 
 
+def area_threshold(score, area_ha, keep=0.95):
+    """Presence-only threshold: the highest score such that the cells with score >= it hold `keep` of the harvested
+    area `area_ha` (fixed sensitivity on the MIRCA2000 area; Liu et al. 2005, Ecography 28, 385-393; Pearson et al.
+    2007, J. Biogeogr. 34, 102-117). Uses no absences: a cell where the crop is grown is suitable, a cell where it is
+    not grown says nothing (land use). NaN scores left out."""
+    import numpy as np
+    s, a = np.asarray(score).ravel(), np.nan_to_num(np.asarray(area_ha, float)).ravel()
+    ok = np.isfinite(s) & (a > 0)
+    o = np.argsort(-s[ok])
+    share = np.cumsum(a[ok][o]) / a[ok].sum()
+    return float(s[ok][o][np.searchsorted(share, keep)])
+
+
 def _to_std_units(da, var):
     """degC for tasmax / tasmin, mm/day for pr, W m-2 for the radiation; error on unknown units."""
     u = str(da.attrs.get("units", "")).strip().lower().replace(" ", "").replace("**", "").replace("^", "")
