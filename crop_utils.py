@@ -280,6 +280,37 @@ def balanced_proba(p, n1, n0, eps=1e-9):
     return 1 / (1 + np.exp(-z))
 
 
+def growing_temperature(ds, which="season"):
+    """Mean temperature (degC) of the growing period from a BIO file of 1.1.d / 1.3.a: of the whole season (the two
+    phases weighted by their lengths in days) or of phase 2 only (`which="phase2"`, winter wheat: the spring and
+    summer after the winter rest). Phase means = (Tmax + Tmin) / 2, from BIO01/BIO02 (phase 1) and BIO06/BIO07
+    (phase 2). Compared with the FAO ECOCROP absolute minimum temperature in 3.h and 5.h."""
+    import numpy as np
+    t1 = (ds["BIO01"].values + ds["BIO02"].values) / 2
+    t2 = (ds["BIO06"].values + ds["BIO07"].values) / 2
+    if which == "phase2":
+        return t2
+    sow, ph2, mat = (ds[v].values for v in ("sowing_doy", "phase2_start_doy", "maturity_doy"))
+    l1 = np.mod(ph2 - sow, 365)
+    l2 = np.mod(mat - ph2, 365) + 1
+    return np.where(l1 > 0, (l1 * t1 + l2 * t2) / (l1 + l2), t2)
+
+
+def tss_threshold(score, label, step=0.01):
+    """Threshold of a suitability score that maximises the true skill statistic TSS = sensitivity + specificity - 1
+    on cells of known presence (label 1) and absence (label 0) (Allouche et al. 2006, J. Appl. Ecol. 43, 1223-1232;
+    the "max SSS" criterion of Liu et al. 2005, Ecography 28, 385-393, and 2013, J. Biogeogr. 40, 778-789).
+    Cell suitable = score >= threshold. Returns (threshold, TSS, sensitivity, specificity); NaN scores left out."""
+    import numpy as np
+    ok = np.isfinite(score)
+    s, y = np.asarray(score)[ok], np.asarray(label)[ok].astype(bool)
+    t = np.arange(0.0, 1.0 + step / 2, step)
+    sens = np.array([(s[y] >= x).mean() for x in t])
+    spec = np.array([(s[~y] < x).mean() for x in t])
+    k = int(np.argmax(sens + spec - 1))
+    return float(t[k]), float(sens[k] + spec[k] - 1), float(sens[k]), float(spec[k])
+
+
 def _to_std_units(da, var):
     """degC for tasmax / tasmin, mm/day for pr, W m-2 for the radiation; error on unknown units."""
     u = str(da.attrs.get("units", "")).strip().lower().replace(" ", "").replace("**", "").replace("^", "")
