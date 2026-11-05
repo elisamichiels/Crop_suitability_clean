@@ -142,11 +142,30 @@ ECOCROP_TMIN = {"Maize_rf": (10, "season"), "Potato_rf": (7, "season"), "Soybean
                 "Wheat_rf": (5, "phase2")}
 
 
-def climate_suitable(clim_p, t_grow, crop):
-    """Binary climate suitability (4.g): SVM probability at equal priors >= CLIMATE_P (0 where novel) and growing-period
-    temperature (growing_temperature) >= the ECOCROP TMIN of the crop; NaN -> False."""
+LAPSE_RATE = 0.0065   # degC per m, standard atmosphere
+TMIN_LAPSE = True     # ECOCROP TMIN tested on the lower part of the cell (tmin_warming); False = on the cell mean (until 6 Nov 2026)
+
+
+def tmin_warming(cfg):
+    """Warming (degC) of the lower part of the cell against its mean, for the ECOCROP TMIN test: LAPSE_RATE x (mean -
+    10th percentile of the elevation of the land pixels, notebook 0.5), >= 0, 0 without relief data. A cell passes TMIN
+    when at least about 10 % of its land is warm enough: the crops of the cold mountain cells occupy 0.1-0.3 % of the
+    cell, in the valleys. 0 everywhere when TMIN_LAPSE is False."""
     import numpy as np
-    t = np.asarray(t_grow, float)
+    import xarray as xr
+    if not TMIN_LAPSE:
+        return np.zeros(land_mask(cfg).shape)
+    with xr.open_dataset(out_dir(cfg, MASKS) / "relief_ecearth3.nc") as ds:
+        dz = ds["elev_mean"].values - ds["elev_p10"].values
+    return LAPSE_RATE * np.clip(np.nan_to_num(dz), 0.0, None)
+
+
+def climate_suitable(clim_p, t_grow, crop, dt=0.0):
+    """Binary climate suitability (4.g): SVM probability at equal priors >= CLIMATE_P (0 where novel) and growing-period
+    temperature (growing_temperature) + dt (tmin_warming, the lower part of the cell) >= the ECOCROP TMIN of the crop;
+    NaN -> False."""
+    import numpy as np
+    t = np.asarray(t_grow, float) + dt
     return (np.nan_to_num(clim_p) >= CLIMATE_P) & np.isfinite(t) & (np.nan_to_num(t, nan=-99.0) >= ECOCROP_TMIN[crop][0])
 
 
