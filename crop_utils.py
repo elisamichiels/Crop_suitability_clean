@@ -290,7 +290,9 @@ def aoa(ref, label, n_folds=5, seed=42, n_sample=5000):
     `n_sample` rows). Threshold from the cross-validation: DI of each training row to the rows of the other folds
     (the StratifiedKFold of 3.g), upper whisker of their boxplot (largest DI <= Q3 + 1.5 IQR). Returns a function
     X -> DI and the threshold; DI > threshold = outside the area of applicability, the model has seen no climate
-    near it (an RBF SVM then gives back its intercept, a probability near 0.5 at equal priors)."""
+    near it. Kept as information in 4.g: in the 2050 runs it flags 16-63 % of today's cropland of maize, soybean and
+    rice where the SVM still predicts (kernel support, `kernel_support`), and it does not separate them from the far
+    field of the Arctic potato cells."""
     import numpy as np
     from scipy.spatial import cKDTree
     from scipy.spatial.distance import pdist
@@ -304,6 +306,19 @@ def aoa(ref, label, n_folds=5, seed=42, n_sample=5000):
     thr = float(di[di <= q3 + 1.5 * (q3 - q1)].max())
     tree = cKDTree(ref)
     return (lambda X: tree.query(X)[0] / dbar), thr
+
+
+def kernel_support(model):
+    """Largest RBF kernel value between a row and the support vectors of a fitted sklearn SVC, Kmax = exp(-gamma d^2),
+    d = distance to the nearest support vector in the space of the model (standardised by its scaler). The decision
+    function is b + sum_i a_i y_i K(x, sv_i): when Kmax is near 0 no support vector is within the reach of the kernel,
+    the decision falls back to the intercept b and the probability to its value far from all data (0.507 for potato,
+    gamma 4). The threshold therefore comes from the kernel width of the model itself, not from the spread of the
+    training rows (the DI of `aoa`). Returns a function X -> Kmax."""
+    import numpy as np
+    from scipy.spatial import cKDTree
+    tree, g = cKDTree(model.support_vectors_), float(model._gamma)
+    return lambda X: np.exp(-g * tree.query(X)[0] ** 2)
 
 
 def balanced_proba(p, n1, n0, eps=1e-9):
