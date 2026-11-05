@@ -283,6 +283,28 @@ def nt2(X, ref):
     return dist(X) / dist(ref).max()
 
 
+def aoa(ref, label, n_folds=5, seed=42, n_sample=5000):
+    """Area of applicability (Meyer & Pebesma 2021, Methods Ecol. Evol. 12, 1620-1633; trainDI / aoa of R CAST),
+    unweighted. `ref`: the training rows in the space of the model (standardised by its scaler), `label`: their classes.
+    Dissimilarity index DI = distance to the nearest training row / mean distance between training rows (from
+    `n_sample` rows). Threshold from the cross-validation: DI of each training row to the rows of the other folds
+    (the StratifiedKFold of 3.g), upper whisker of their boxplot (largest DI <= Q3 + 1.5 IQR). Returns a function
+    X -> DI and the threshold; DI > threshold = outside the area of applicability, the model has seen no climate
+    near it (an RBF SVM then gives back its intercept, a probability near 0.5 at equal priors)."""
+    import numpy as np
+    from scipy.spatial import cKDTree
+    from scipy.spatial.distance import pdist
+    from sklearn.model_selection import StratifiedKFold
+    s = np.random.default_rng(seed).choice(len(ref), min(n_sample, len(ref)), replace=False)
+    dbar = pdist(ref[s]).mean()
+    di = np.empty(len(ref))
+    for tr, te in StratifiedKFold(n_folds, shuffle=True, random_state=seed).split(np.zeros(len(label)), label):
+        di[te] = cKDTree(ref[tr]).query(ref[te])[0] / dbar
+    q1, q3 = np.percentile(di, [25, 75])
+    thr = float(di[di <= q3 + 1.5 * (q3 - q1)].max())
+    tree = cKDTree(ref)
+    return (lambda X: tree.query(X)[0] / dbar), thr
+
 
 def balanced_proba(p, n1, n0, eps=1e-9):
     """Platt probability of the SVM brought to equal class priors. The SVM of 3.g is trained with balanced class
