@@ -132,8 +132,9 @@ MASKS = "0_masks_ecearth3"   # out_dir(cfg, MASKS): land mask and MIRCA2000 mask
 # Final binary suitability: climate suitable (4.g) AND soil suitable (5.h, 6.b), each on its own scale (no product of
 # the two, which has no physical meaning: the SVM probability is not a yield fraction like the GAEZ agro-climatic index).
 CLIMATE_P = 0.5    # SVM probability at equal class priors (balanced_proba): the decision threshold of the classifier
-SOIL_MIN = 25      # soil suitability rating (2.g, % of the attainable yield): GAEZ class "moderate" or better
-                   # (marginal, very marginal and not suitable left out)
+SOIL_MIN = 10      # soil suitability rating (2.g, % of the attainable yield): GAEZ class "marginal" or better (very
+                   # marginal and not suitable left out). 25 ("moderate" or better) until 6 Nov 2026: the crops are
+                   # grown on "marginal" soils (most soil misses had a rating of 10-25); 25 kept as the sensitivity
 # FAO ECOCROP absolute minimum temperature (degC) of the growing period and the temperature compared (3.h): the
 # physiological floor of the climate suitability, in every scenario with its own temperatures
 ECOCROP_TMIN = {"Maize_rf": (10, "season"), "Potato_rf": (7, "season"), "Soybean_rf": (10, "season"),
