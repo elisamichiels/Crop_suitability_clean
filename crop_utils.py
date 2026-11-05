@@ -129,6 +129,18 @@ def out_dir(cfg, *parts):
 # --------------------------------------------------------------------------
 MASKS = "0_masks_ecearth3"   # out_dir(cfg, MASKS): land mask and MIRCA2000 masks of notebook 0.1
 
+# Final binary suitability (5.h, 6.b): climate suitable AND soil suitable, each on its own scale (no product of the
+# two, which has no physical meaning: the SVM probability is not a yield fraction like the GAEZ agro-climatic index).
+CLIMATE_P = 0.5    # SVM probability at equal class priors (balanced_proba): the decision threshold of the classifier
+SOIL_MIN = 25      # soil suitability rating (2.g, % of the attainable yield): GAEZ class "moderate" or better
+                   # (marginal, very marginal and not suitable left out)
+
+
+def suitable(clim_p, ssr):
+    """Final binary suitability: climate probability >= CLIMATE_P and soil rating (0-100) >= SOIL_MIN; NaN -> False."""
+    import numpy as np
+    return (np.nan_to_num(clim_p) >= CLIMATE_P) & (np.nan_to_num(ssr) >= SOIL_MIN)
+
 
 def lon180(lon):
     """Longitudes in [-180, 180)."""
