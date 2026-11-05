@@ -129,17 +129,31 @@ def out_dir(cfg, *parts):
 # --------------------------------------------------------------------------
 MASKS = "0_masks_ecearth3"   # out_dir(cfg, MASKS): land mask and MIRCA2000 masks of notebook 0.1
 
-# Final binary suitability (5.h, 6.b): climate suitable AND soil suitable, each on its own scale (no product of the
-# two, which has no physical meaning: the SVM probability is not a yield fraction like the GAEZ agro-climatic index).
+# Final binary suitability: climate suitable (4.g) AND soil suitable (5.h, 6.b), each on its own scale (no product of
+# the two, which has no physical meaning: the SVM probability is not a yield fraction like the GAEZ agro-climatic index).
 CLIMATE_P = 0.5    # SVM probability at equal class priors (balanced_proba): the decision threshold of the classifier
 SOIL_MIN = 25      # soil suitability rating (2.g, % of the attainable yield): GAEZ class "moderate" or better
                    # (marginal, very marginal and not suitable left out)
+# FAO ECOCROP absolute minimum temperature (degC) of the growing period and the temperature compared (3.h): the
+# physiological floor of the climate suitability, in every scenario with its own temperatures
+ECOCROP_TMIN = {"Maize_rf": (10, "season"), "Potato_rf": (7, "season"), "Soybean_rf": (10, "season"),
+                "Rice_rf": (10, "season"), "Wheat-spring_rf": (5, "season"), "Wheat-winter_rf": (5, "phase2"),
+                "Wheat_rf": (5, "phase2")}
 
 
-def suitable(clim_p, ssr):
-    """Final binary suitability: climate probability >= CLIMATE_P and soil rating (0-100) >= SOIL_MIN; NaN -> False."""
+def climate_suitable(clim_p, t_grow, crop):
+    """Binary climate suitability (4.g): SVM probability at equal priors >= CLIMATE_P (0 where novel) and growing-period
+    temperature (growing_temperature) >= the ECOCROP TMIN of the crop; NaN -> False."""
     import numpy as np
-    return (np.nan_to_num(clim_p) >= CLIMATE_P) & (np.nan_to_num(ssr) >= SOIL_MIN)
+    t = np.asarray(t_grow, float)
+    return (np.nan_to_num(clim_p) >= CLIMATE_P) & np.isfinite(t) & (np.nan_to_num(t, nan=-99.0) >= ECOCROP_TMIN[crop][0])
+
+
+def suitable(clim_ok, ssr):
+    """Final binary suitability: climate suitable (suit_bin of 4.g, climate_suitable) and soil rating (0-100) >=
+    SOIL_MIN; NaN -> False."""
+    import numpy as np
+    return (np.nan_to_num(clim_ok) == 1) & (np.nan_to_num(ssr) >= SOIL_MIN)
 
 
 def lon180(lon):
