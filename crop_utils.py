@@ -354,6 +354,53 @@ def aoa(ref, label, n_folds=5, seed=42, n_sample=5000):
     return (lambda X: tree.query(X)[0] / dbar), thr
 
 
+def crossfit_models(path, X, y, bundle, n_folds=5, seed=42, n_jobs=1):
+    """Cross-fitting (4.g): the n_folds models of the stratified folds of 3.g (seed 42), with the cost and gamma of the
+    final model `bundle`, so that every training cell is predicted by a model that did not see it (no memorisation of
+    its label). Saved in `path` and read back when the training table, cost and gamma are the same (the fold models
+    of test 8.a can be copied there). Returns {"fits": [(scaler, model)], "test_idx", "hash", "cost", "gamma"}."""
+    import hashlib
+    import joblib
+    import numpy as np
+    from joblib import Parallel, delayed
+    from sklearn.model_selection import StratifiedKFold
+    from sklearn.preprocessing import StandardScaler
+    from sklearn.svm import SVC
+    h = hashlib.md5(np.ascontiguousarray(X, dtype=np.float64).tobytes() + np.asarray(y, np.int8).tobytes()).hexdigest()
+    cost, gamma = bundle["best_cost"], bundle["best_gamma"]
+    if path.exists():
+        F = joblib.load(path)
+        if F.get("hash") == h and F.get("cost") == cost and F.get("gamma") == gamma:
+            return F
+
+    def fit(tr):
+        s = StandardScaler().fit(X[tr])
+        cw = {1: 1.0, 0: (y[tr] == 1).sum() / (y[tr] == 0).sum()}          # class weights of 3.g
+        return s, SVC(kernel="rbf", C=cost, gamma=gamma, class_weight=cw, probability=True,
+                      random_state=seed).fit(s.transform(X[tr]), y[tr])
+
+    folds = list(StratifiedKFold(n_folds, shuffle=True, random_state=seed).split(np.zeros(len(y)), y))
+    F = {"fits": Parallel(n_jobs=n_jobs)(delayed(fit)(tr) for tr, _ in folds), "test_idx": [te for _, te in folds],
+         "hash": h, "cost": cost, "gamma": gamma}
+    joblib.dump(F, path)
+    return F
+
+
+def crossfit_proba(F, X_cells):
+    """Platt probability of each training cell (rows in the order of the training table, predictors of any climate)
+    by the fold model that did not see it; NaN where a predictor is missing."""
+    import numpy as np
+    g = np.full(len(X_cells), np.nan)
+    ok = np.isfinite(X_cells).all(axis=1)
+    for (s, m), te in zip(F["fits"], F["test_idx"]):
+        sel = np.zeros(len(X_cells), bool)
+        sel[te] = True
+        sel &= ok
+        if sel.any():
+            g[sel] = m.predict_proba(s.transform(X_cells[sel]))[:, 1]
+    return g
+
+
 def kernel_support(model):
     """Largest RBF kernel value between a row and the support vectors of a fitted sklearn SVC, Kmax = exp(-gamma d^2),
     d = distance to the nearest support vector in the space of the model (standardised by its scaler). The decision
