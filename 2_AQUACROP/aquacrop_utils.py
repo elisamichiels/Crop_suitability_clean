@@ -218,6 +218,8 @@ def run_cells(work_root, cells, write_inputs, database_files, n_workers=4, timeo
                 return cell, None
             return cell, read_season(work / "OUTP" / f"{prm[:-4]}PRMseason.OUT")
         finally:
+            for f in list((work / "DATA").glob(f"{prm[:-4]}.*")) + [work / "LIST" / prm, work / "PARAM" / (prm[:-3] + "PPn")]:
+                f.unlink(missing_ok=True)                   # inputs of the cell (the results are read above)
             works.put(work)
 
     with cf.ThreadPoolExecutor(max_workers=n_workers) as ex:
