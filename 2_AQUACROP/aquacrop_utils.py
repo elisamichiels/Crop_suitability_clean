@@ -25,7 +25,13 @@ EOL = "\r\n" if os.name == "nt" else "\n"        # end of line of the input file
 HERE = Path(__file__).resolve().parent
 EXE = {"nt": HERE / "aquacrop-7.3-x86_64-windows" / "aquacrop-7.3-x86_64-windows" / "aquacrop.exe",
        "posix": HERE / "aquacrop-7.3-x86_64-linux" / "aquacrop-7.3-x86_64-linux" / "aquacrop"}[os.name]
-DATABASE = HERE / "GUI_AC7.3" / "DATA"         # FAO crop (.CRO) and soil (.SOL) files of the standard programme
+# FAO crop (.CRO) and soil (.SOL) files of the standard programme: GUI_AC7.3/GUI_AC7.3/DATA when unpacked by
+# ensure_installed (the archive has a top folder), GUI_AC7.3/DATA when unpacked by hand
+DATABASE_CANDIDATES = (HERE / "GUI_AC7.3" / "GUI_AC7.3" / "DATA", HERE / "GUI_AC7.3" / "DATA")
+
+
+def database():
+    return next((p for p in DATABASE_CANDIDATES if p.exists()), DATABASE_CANDIDATES[0])
 
 # HWSD v2 USDA texture class (D_TEXTURE_USDA) -> soil file of the AquaCrop database
 HWSD_TEXTURE_TO_SOL = {1: "Clay.SOL", 2: "SiltyClay.SOL", 3: "Clay.SOL", 4: "SiltClayLoam.SOL", 5: "ClayLoam.SOL",
@@ -144,9 +150,9 @@ def ensure_installed():
     the FAO database) next to this module when they are missing (they are not in git)."""
     import urllib.request
     import zipfile
-    need = {"aquacrop-7.3-x86_64-windows" if os.name == "nt" else "aquacrop-7.3-x86_64-linux": EXE, "GUI_AC7.3": DATABASE}
+    need = {"aquacrop-7.3-x86_64-windows" if os.name == "nt" else "aquacrop-7.3-x86_64-linux": lambda: EXE, "GUI_AC7.3": database}
     for name, target in need.items():
-        if target.exists():
+        if target().exists():
             continue
         z = HERE / "downloads_v7.3" / f"{name}.zip"
         z.parent.mkdir(exist_ok=True)
@@ -156,7 +162,7 @@ def ensure_installed():
         with zipfile.ZipFile(z) as zf:
             assert not [n for n in zf.namelist() if n.startswith("/") or ".." in n], f"unsafe paths in {z}"
             zf.extractall(HERE / name)
-        assert target.exists(), f"{target} not found after unpacking {z}"
+        assert target().exists(), f"{target()} not found after unpacking {z}"
 
 
 def make_workdir(work, database_files=()):
@@ -174,7 +180,7 @@ def make_workdir(work, database_files=()):
     for f in list((work / "OUTP").iterdir()) + list((work / "LIST").iterdir()) + list((work / "DATA").iterdir()):
         f.unlink()                                       # results and inputs of a previous use of the folder
     for f in database_files:
-        shutil.copy2(DATABASE / f, work / "DATA" / f)
+        shutil.copy2(database() / f, work / "DATA" / f)
     return work
 
 
@@ -230,7 +236,8 @@ def run_cells(work_root, cells, write_inputs, database_files, n_workers=4, timeo
 
 def crop_gdd_parameters(crop_file):
     """Base and upper temperature and growing degree-days from sowing to maturity of a crop file (GDD mode)."""
-    lines = (DATABASE / crop_file).read_text(encoding="latin-1").replace(chr(13), "").splitlines()
+    ensure_installed()
+    lines = (database() / crop_file).read_text(encoding="latin-1").replace(chr(13), "").splitlines()
     val = lambda key: float(next(l for l in lines if key in l).split(":")[0].split()[0])
     return {"tbase": val("Base temperature"), "tupper": val("Upper temperature"),
             "gdd_maturity": val("GDDays: from sowing to maturity")}
@@ -249,7 +256,8 @@ def write_crop_variant(crop_file, path, gdd_maturity, title=None):
     """Copy of a crop file of the FAO database with the cycle length set to gdd_maturity growing degree-days: every
     degree-day duration but emergence scaled by f = gdd_maturity / original maturity, the canopy growth and decline
     coefficients per degree-day divided by f (same canopy course in relative time). Returns f."""
-    lines = (DATABASE / crop_file).read_text(encoding="latin-1").replace(chr(13), "").splitlines()
+    ensure_installed()
+    lines = (database() / crop_file).read_text(encoding="latin-1").replace(chr(13), "").splitlines()
     f = gdd_maturity / crop_gdd_parameters(crop_file)["gdd_maturity"]
     out = []
     for k, l in enumerate(lines):
