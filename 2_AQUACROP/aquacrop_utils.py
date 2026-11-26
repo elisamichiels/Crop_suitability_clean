@@ -171,10 +171,10 @@ def make_workdir(work, database_files=()):
         (work / EXE.name).chmod(0o755)
     for f in (EXE.parent / "SIMUL").iterdir():
         shutil.copy2(f, work / "SIMUL" / f.name)
+    for f in list((work / "OUTP").iterdir()) + list((work / "LIST").iterdir()) + list((work / "DATA").iterdir()):
+        f.unlink()                                       # results and inputs of a previous use of the folder
     for f in database_files:
         shutil.copy2(DATABASE / f, work / "DATA" / f)
-    for f in list((work / "OUTP").iterdir()) + list((work / "LIST").iterdir()):
-        f.unlink()
     return work
 
 
