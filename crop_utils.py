@@ -22,6 +22,49 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent
 CONFIG_DIR = PROJECT_ROOT / "config"
 
+# --------------------------------------------------------------------------
+# 0. Grid of the chain: the EC-Earth3 grid (AMOC runs, default) or the native grid of a CMIP6 model
+# --------------------------------------------------------------------------
+# Set with the environment variable CROP_GRID before importing crop_utils (e.g. CROP_GRID=mri-esm2-0). Regridding is
+# only allowed towards a coarser grid, so each GCM keeps its own grid and the whole chain (masks, ERA5 BIO, SVM, soil)
+# runs on it. With another grid than ecearth3:
+#   - the outputs go to <out_root>/grid_<grid>/ and the grid files are named ..._<grid>.nc instead of ..._ecearth3.nc;
+#   - a dataset '<name>@<grid>' of the configuration, when it exists, replaces '<name>' (era5, gcm_historical, runs);
+#   - the scenarios of the delta method are those of SCENARIOS[grid].
+CROP_GRID = os.environ.get("CROP_GRID", "ecearth3")
+GRID_TAG = CROP_GRID
+GCM_LABEL = {"ecearth3": "EC-Earth3", "mri-esm2-0": "MRI-ESM2-0"}.get(CROP_GRID, CROP_GRID)
+# per grid: the historical reference of the GCM (dataset, years) and the runs: label -> (dataset, years or None = whole
+# file); pairs (run, reference run) of the AMOC weakening (EC-Earth3 only)
+SCENARIOS = {
+    "ecearth3": {
+        "reference": ("gcm_historical", ("1981", "2014")),
+        "runs": {r: (r, None) for r in ("gcm_2025_nohosing", "gcm_2025_hosing", "gcm_2050_nohosing", "gcm_2050_hosing")},
+        "pairs": [("gcm_2025_hosing", "gcm_2025_nohosing"), ("gcm_2050_hosing", "gcm_2050_nohosing")],
+    },
+    "mri-esm2-0": {
+        "reference": ("gcm_historical", ("1981", "2014")),   # the years of the ERA5 BIO (level of the delta)
+        "runs": {f"{e}_{a}-{b}": (f"gcm_{e}", (a, b)) for e in ("ssp126", "ssp245", "ssp585")
+                 for a, b in (("2041", "2070"), ("2071", "2100"))},
+        "pairs": [],
+    },
+}
+
+
+def runs():
+    """Labels of the runs of the delta method on the current grid."""
+    return list(SCENARIOS[CROP_GRID]["runs"])
+
+
+def pairs():
+    """(run, reference run) pairs of the AMOC weakening on the current grid ([] for the CMIP6 grids)."""
+    return list(SCENARIOS[CROP_GRID]["pairs"])
+
+
+def run_source(label, period=None):
+    """(dataset, years) of a run label of the current grid; any other name (e.g. gcm_historical) is returned as is."""
+    return SCENARIOS[CROP_GRID]["runs"].get(label, (label, period))
+
 REQUIRED_PACKAGES = ["numpy", "pandas", "xarray", "netCDF4", "cftime", "scipy", "sklearn", "joblib",
                      "matplotlib", "rasterio", "regionmask", "geopandas", "shapely", "openpyxl"]
 
@@ -61,9 +104,15 @@ def load_config(path=None, verbose=True):
 # --------------------------------------------------------------------------
 # 2. Dataset paths
 # --------------------------------------------------------------------------
+def dataset_name(cfg, name):
+    """'<name>@<CROP_GRID>' when the configuration has it (another grid than ecearth3), else `name`."""
+    alt = f"{name}@{CROP_GRID}"
+    return alt if CROP_GRID != "ecearth3" and alt in cfg["datasets"] else name
+
+
 def _patterns(cfg, name, var=None):
     """Pattern(s) of one dataset; `var` = one of its variables (None = first one / no variable)."""
-    pats = cfg["datasets"][name]["patterns"]
+    pats = cfg["datasets"][dataset_name(cfg, name)]["patterns"]
     key = var if var is not None else next(iter(pats))
     p = pats[key]
     return p if isinstance(p, list) else [p]
@@ -94,7 +143,7 @@ def data_file(cfg, name, var=None):
 def data_dir(cfg, name):
     """Folder of a dataset = the part of its pattern (with {var} still in it) before the first wildcard.
     While the pattern is still TO_FILL, returns it as is, so that any read fails showing what to fill in."""
-    p = cfg["datasets"][name]["template"]
+    p = cfg["datasets"][dataset_name(cfg, name)]["template"]
     p = p[0] if isinstance(p, list) else p
     if not is_filled(p):
         return Path(p)
@@ -119,7 +168,10 @@ def hwsd_connect(path):
 def out_dir(cfg, *parts):
     """Output folder <out_root>/<parts> (created if needed). out_root comes from the config (BDAP:
     .../elisa/Crop_suitability/outputs), one sub-folder per step: 0_masks_ecearth3, 1_biovariables/<variant>, ..."""
-    d = Path(cfg.get("out_root") or PROJECT_ROOT / "outputs").joinpath(*parts)
+    root = Path(cfg.get("out_root") or PROJECT_ROOT / "outputs")
+    if CROP_GRID != "ecearth3":
+        root = root / f"grid_{CROP_GRID}"
+    d = root.joinpath(*parts)
     d.mkdir(parents=True, exist_ok=True)
     return d
 
@@ -127,7 +179,7 @@ def out_dir(cfg, *parts):
 # --------------------------------------------------------------------------
 # 3. SVM grid = EC-Earth3 grid (0.7 deg, global)
 # --------------------------------------------------------------------------
-MASKS = "0_masks_ecearth3"   # out_dir(cfg, MASKS): land mask and MIRCA2000 masks of notebook 0.1
+MASKS = f"0_masks_{GRID_TAG}"   # out_dir(cfg, MASKS): land mask and MIRCA2000 masks of notebook 0.1
 
 # Final binary suitability: climate suitable (4.g) AND soil suitable (5.h, 6.b), each on its own scale (no product of
 # the two, which has no physical meaning: the SVM probability is not a yield fraction like the GAEZ agro-climatic index).
@@ -155,7 +207,7 @@ def tmin_warming(cfg):
     import xarray as xr
     if not TMIN_LAPSE:
         return np.zeros(land_mask(cfg).shape)
-    with xr.open_dataset(out_dir(cfg, MASKS) / "relief_ecearth3.nc") as ds:
+    with xr.open_dataset(out_dir(cfg, MASKS) / f"relief_{GRID_TAG}.nc") as ds:
         dz = ds["elev_mean"].values - ds["elev_p10"].values
     return LAPSE_RATE * np.clip(np.nan_to_num(dz), 0.0, None)
 
@@ -191,8 +243,9 @@ def _edges(c, lo=None, hi=None):
 
 def svm_grid(cfg):
     """
-    Grid of the SVM: the EC-Earth3 grid (0.7 deg, global), the grid of the ERA5 file regridded with CDO, of EC-Earth3
-    historical and of the four runs. Read from an EC-Earth3 historical file: cell centres (lat ascending, lon in
+    Grid of the SVM: the native grid of the GCM of CROP_GRID (EC-Earth3 0.7 deg by default; MRI-ESM2-0 gaussian 320 x 160),
+    the grid of the ERA5 file regridded with CDO, of the historical run and of the future runs. Read from a historical
+    file of that GCM (gcm_historical of the grid): cell centres (lat ascending, lon in
     [-180, 180) ascending) and cell edges (lat from lat_bnds, lon halfway between centres).
     """
     import numpy as np
@@ -236,7 +289,7 @@ def to_svm_grid(da, grid):
 def land_mask(cfg):
     """Land mask of the SVM grid (True = land), written by notebook 0.1."""
     import xarray as xr
-    with xr.open_dataset(out_dir(cfg, MASKS) / "land_mask_ecearth3.nc") as ds:
+    with xr.open_dataset(out_dir(cfg, MASKS) / f"land_mask_{GRID_TAG}.nc") as ds:
         return ds["land_mask"].load() == 1
 
 
@@ -244,7 +297,7 @@ def relief(cfg):
     """RELIEF of notebook 0.5 on the SVM grid (standard deviation of the elevation of the land pixels of the cell, m):
     a static predictor, the same for every scenario and crop (test 6 of 3.g)."""
     import xarray as xr
-    with xr.open_dataset(out_dir(cfg, MASKS) / "relief_ecearth3.nc") as ds:
+    with xr.open_dataset(out_dir(cfg, MASKS) / f"relief_{GRID_TAG}.nc") as ds:
         return ds["RELIEF"].load()
 
 
@@ -259,7 +312,7 @@ def bio_array(ds, cols, cfg):
 def crop_mask(cfg, crop):
     """MIRCA2000 no-threshold presence, harvested area and calendar of `crop` (e.g. 'Maize_rf'), notebook 0.1."""
     import xarray as xr
-    with xr.open_dataset(out_dir(cfg, MASKS) / f"mirca2000_no_threshold_ecearth3_{crop}.nc") as ds:
+    with xr.open_dataset(out_dir(cfg, MASKS) / f"mirca2000_no_threshold_{GRID_TAG}_{crop}.nc") as ds:
         return ds.load()
 
 
@@ -268,7 +321,7 @@ def mirca_cropland(cfg, cell_area_thr=None):
     background of the SVM training (absences only where other crops are grown). With `cell_area_thr`, only the cells
     where the cropland is more than that fraction of the land area of the cell (route cellareafrac)."""
     import xarray as xr
-    with xr.open_dataset(out_dir(cfg, MASKS) / "mirca2000_any_crop_ecearth3.nc") as ds:
+    with xr.open_dataset(out_dir(cfg, MASKS) / f"mirca2000_any_crop_{GRID_TAG}.nc") as ds:
         ds = ds.load()
     c = ds["cropland"] == 1
     return c & (cell_area_frac(cfg, ds["area_ha"].values) > cell_area_thr) if cell_area_thr else c
@@ -282,7 +335,7 @@ def land_area_ha(cfg):
     r = 6371.0e3                                             # m
     area = (r ** 2 * np.diff(np.sin(np.radians(g["lat_edges"])))[:, None]
             * np.radians(np.diff(g["lon_edges"]))[None, :]) / 1e4
-    with xr.open_dataset(out_dir(cfg, MASKS) / "land_mask_ecearth3.nc") as ds:
+    with xr.open_dataset(out_dir(cfg, MASKS) / f"land_mask_{GRID_TAG}.nc") as ds:
         return area * ds["land_frac"].values
 
 
@@ -502,7 +555,7 @@ def read_climate(cfg, name, var, grid, period=None):
     """
     import xarray as xr
     if var == "rad":
-        var_key = next(v for v in cfg["datasets"][name]["vars"] if v in ("dswrf", "ssrd"))
+        var_key = next(v for v in cfg["datasets"][dataset_name(cfg, name)]["vars"] if v in ("dswrf", "ssrd"))
     else:
         var_key = var
     files = data_files(cfg, name, var_key)
