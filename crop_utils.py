@@ -32,11 +32,19 @@ CONFIG_DIR = PROJECT_ROOT / "config"
 #   - a dataset '<name>@<grid>' of the configuration, when it exists, replaces '<name>' (era5, gcm_historical, runs);
 #   - the scenarios of the delta method are those of SCENARIOS[grid].
 # Grids: ecearth3 (AMOC runs, raw EC-Earth3), mri-esm2-0 (CMIP6 raw, WCRP mirror, gaussian ~1.1 deg), isimip3b (0.5 deg,
-# ISIMIP3b bias-adjusted MRI-ESM2-0; the training climate 'era5@isimip3b' is W5E5 v2.0, the reference of the ISIMIP3b
-# bias adjustment).
+# ISIMIP3b bias-adjusted MRI-ESM2-0; to run with CROP_REF=w5e5, 'w5e5@isimip3b' being W5E5 v2.0 at 0.5 deg, the
+# reference of the ISIMIP3b bias adjustment).
 CROP_GRID = os.environ.get("CROP_GRID", "ecearth3")
 GRID_TAG = CROP_GRID
 GCM_LABEL = {"ecearth3": "EC-Earth3", "mri-esm2-0": "MRI-ESM2-0", "isimip3b": "MRI-ESM2-0 (ISIMIP3b)"}.get(CROP_GRID, CROP_GRID)
+# Training climate of the SVM (the observed reference, also the level of the delta method), set with CROP_REF:
+# "era5" (default) or "w5e5" (W5E5 v2.0: ERA5 with the precipitation adjusted to the GPCC gauges and the temperature to
+# CRU; Cucchi et al. 2020). Its dataset in the configuration is named after it (era5, w5e5, '@<grid>' as above); outside
+# era5 the outputs go to ref_<ref>/ (masks and soil, which do not depend on the climate, stay shared), and the BIO
+# files, models and scenario label carry REF_LABEL instead of ERA5.
+CROP_REF = os.environ.get("CROP_REF", "era5")
+REF_LABEL = {"era5": "ERA5", "w5e5": "W5E5"}.get(CROP_REF, CROP_REF.upper())
+REF_FREE = ("0_masks_", "2_soil_suitability")   # output folders that do not depend on the training climate
 # per grid: the historical reference of the GCM (dataset, years) and the runs: label -> (dataset, years or None = whole
 # file); pairs (run, reference run) of the AMOC weakening (EC-Earth3 only)
 SCENARIOS = {
@@ -178,10 +186,13 @@ def out_dir(cfg, *parts, shared=False):
     """Output folder <out_root>/<parts> (created if needed). out_root comes from the config (BDAP:
     .../elisa/Crop_suitability/outputs), one sub-folder per step: 0_masks_ecearth3, 1_biovariables/<variant>, ...
     Outside the default grid under grid_<CROP_GRID>/; shared=True: the folder of the default grid, for the outputs
-    that do not depend on the grid (2.c, per HWSD soil unit)."""
+    that do not depend on the grid (2.c, per HWSD soil unit). Outside the ERA5 reference (CROP_REF) under ref_<ref>/,
+    except the folders that do not depend on the climate (REF_FREE: masks, soil)."""
     root = Path(cfg.get("out_root") or PROJECT_ROOT / "outputs")
     if CROP_GRID != "ecearth3" and not shared:
         root = root / f"grid_{CROP_GRID}"
+    if CROP_REF != "era5" and not shared and not (parts and str(parts[0]).startswith(REF_FREE)):
+        root = root / f"ref_{CROP_REF}"
     d = root.joinpath(*parts)
     d.mkdir(parents=True, exist_ok=True)
     return d
