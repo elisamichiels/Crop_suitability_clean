@@ -56,36 +56,44 @@ def files_of(docs, y0, y1):
             continue
         v = max(dataset_version(d) for d in ds)
         ds = [d for d in ds if dataset_version(d) == v]
-        urls = [u.split("|")[0] for d in ds for u in d.get("url", []) if u.endswith("|HTTPServer")]
-        ck = next((d["checksum"][0] for d in ds if d.get("checksum")), None)
-        ct = next((d["checksum_type"][0] for d in ds if d.get("checksum_type")), "SHA256")
-        out.append({"title": title, "version": v, "urls": urls, "checksum": ck, "checksum_type": ct,
+        # every replica with its own checksum: the replicas of a file do not always carry the same one in the index
+        sources = [(u.split("|")[0], (d.get("checksum") or [None])[0], (d.get("checksum_type") or ["SHA256"])[0],
+                    int(d.get("size", 0))) for d in ds for u in d.get("url", []) if u.endswith("|HTTPServer")]
+        out.append({"title": title, "version": v, "urls": [s[0] for s in sources], "sources": sources,
                     "size": int(ds[0].get("size", 0))})
     return out
 
 
-def checksum_ok(path, f):
-    if not f["checksum"]:
-        return path.stat().st_size == f["size"]
-    h = hashlib.new(f["checksum_type"].lower())
-    with open(path, "rb") as fh:
-        for block in iter(lambda: fh.read(1 << 24), b""):
-            h.update(block)
-    return h.hexdigest() == f["checksum"]
+def checksum_ok(path, sources):
+    """True if the file matches the checksum (or, without one, the size) of any replica."""
+    known = {(ct.lower(), ck) for _, ck, ct, _ in sources if ck}
+    if not known:
+        return path.stat().st_size in {s for *_, s in sources}
+    for ct in {t for t, _ in known}:
+        h = hashlib.new(ct)
+        with open(path, "rb") as fh:
+            for block in iter(lambda: fh.read(1 << 24), b""):
+                h.update(block)
+        if (ct, h.hexdigest()) in known:
+            return True
+    return False
 
 
 def fetch(f, dest):
     path = dest / f["title"]
-    if path.exists() and checksum_ok(path, f):
+    if path.exists() and checksum_ok(path, f["sources"]):
         return f"skip {f['title']}"
     part = path.with_name(path.name + ".part")
-    for url in f["urls"]:
+    why = []
+    for url, ck, ct, size in f["sources"]:
         r = subprocess.run(["wget", "-q", "-c", "--timeout=60", "--tries=3", "-O", str(part), url])
-        if r.returncode == 0 and part.exists() and checksum_ok(part, f):
+        if r.returncode == 0 and part.exists() and checksum_ok(part, [(url, ck, ct, size)]):
             part.rename(path)
             return f"ok {f['title']}"
+        why.append(f"{url.split('/')[2]}: " + (f"wget {r.returncode}" if r.returncode else
+                   f"checksum ({part.stat().st_size if part.exists() else 0} of {size} bytes)"))
         part.unlink(missing_ok=True)                     # bad replica or broken transfer: next replica from scratch
-    return f"FAILED {f['title']} ({len(f['urls'])} replicas)"
+    return f"FAILED {f['title']} ({'; '.join(why)})"
 
 
 def main():
