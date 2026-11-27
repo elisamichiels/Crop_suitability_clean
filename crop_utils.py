@@ -45,27 +45,51 @@ GCM_LABEL = {"ecearth3": "EC-Earth3", "mri-esm2-0": "MRI-ESM2-0", "isimip3b": "M
 CROP_REF = os.environ.get("CROP_REF", "era5")
 REF_LABEL = {"era5": "ERA5", "w5e5": "W5E5"}.get(CROP_REF, CROP_REF.upper())
 REF_FREE = ("0_masks_", "2_soil_suitability")   # output folders that do not depend on the training climate
-# per grid: the historical reference of the GCM (dataset, years) and the runs: label -> (dataset, years or None = whole
-# file); pairs (run, reference run) of the AMOC weakening (EC-Earth3 only)
-SCENARIOS = {
+# Scenario sets per grid: the historical reference of the GCM (dataset, years) and the runs: label -> (dataset, years
+# or None = whole file); pairs (run, reference run) of the AMOC weakening. On the EC-Earth3 grid, CROP_SCEN chooses
+# between the AMOC runs ("amoc", default, paper 2) and the CMIP6 SSPs of EC-Earth3 r1i1p1f1 ("ssp", paper 1); the same
+# SVM models serve both. Outside the default set of the grid, the outputs that depend on the scenarios (delta BIO,
+# 4_svm_predict, 6_*) go to scen_<set>/.
+_SSP_WINDOWS = (("2041", "2070"), ("2071", "2100"))
+SCENARIO_SETS = {
     "ecearth3": {
-        "reference": ("gcm_historical", ("1981", "2014")),
-        "runs": {r: (r, None) for r in ("gcm_2025_nohosing", "gcm_2025_hosing", "gcm_2050_nohosing", "gcm_2050_hosing")},
-        "pairs": [("gcm_2025_hosing", "gcm_2025_nohosing"), ("gcm_2050_hosing", "gcm_2050_nohosing")],
+        "amoc": {
+            "reference": ("gcm_historical", ("1981", "2014")),
+            "runs": {r: (r, None) for r in ("gcm_2025_nohosing", "gcm_2025_hosing", "gcm_2050_nohosing", "gcm_2050_hosing")},
+            "pairs": [("gcm_2025_hosing", "gcm_2025_nohosing"), ("gcm_2050_hosing", "gcm_2050_nohosing")],
+        },
+        "ssp": {
+            "reference": ("gcm_historical", ("1981", "2014")),
+            "runs": {f"{e}_{a}-{b}": (f"gcm_{e}", (a, b)) for e in ("ssp126", "ssp245", "ssp370", "ssp585")
+                     for a, b in _SSP_WINDOWS},
+            "pairs": [],
+        },
     },
     "mri-esm2-0": {
-        "reference": ("gcm_historical", ("1981", "2014")),   # the years of the ERA5 BIO (level of the delta)
-        "runs": {f"{e}_{a}-{b}": (f"gcm_{e}", (a, b)) for e in ("ssp126", "ssp245", "ssp585")
-                 for a, b in (("2041", "2070"), ("2071", "2100"))},
-        "pairs": [],
+        "ssp": {
+            "reference": ("gcm_historical", ("1981", "2014")),   # the years of the ERA5 BIO (level of the delta)
+            "runs": {f"{e}_{a}-{b}": (f"gcm_{e}", (a, b)) for e in ("ssp126", "ssp245", "ssp585") for a, b in _SSP_WINDOWS},
+            "pairs": [],
+        },
     },
     "isimip3b": {
-        "reference": ("gcm_historical", ("1981", "2014")),
-        "runs": {f"{e}_{a}-{b}": (f"gcm_{e}", (a, b)) for e in ("ssp126", "ssp370", "ssp585")
-                 for a, b in (("2041", "2070"), ("2071", "2100"))},
-        "pairs": [],
+        "ssp": {
+            "reference": ("gcm_historical", ("1981", "2014")),
+            "runs": {f"{e}_{a}-{b}": (f"gcm_{e}", (a, b)) for e in ("ssp126", "ssp370", "ssp585") for a, b in _SSP_WINDOWS},
+            "pairs": [],
+        },
     },
 }
+DEFAULT_SCEN = {g: next(iter(s)) for g, s in SCENARIO_SETS.items()}
+CROP_SCEN = os.environ.get("CROP_SCEN", DEFAULT_SCEN.get(CROP_GRID, "ssp"))
+SCENARIOS = {g: s.get(CROP_SCEN if g == CROP_GRID else DEFAULT_SCEN[g]) for g, s in SCENARIO_SETS.items()}   # set in use per grid
+assert SCENARIOS.get(CROP_GRID), f"no scenario set {CROP_SCEN!r} on the grid {CROP_GRID!r}: {list(SCENARIO_SETS.get(CROP_GRID, {}))}"
+
+
+def _scenario_dependent(parts):
+    """Output folders that depend on the scenario set: delta BIO of the runs, predictions, climate x soil of the runs."""
+    p = [str(x) for x in parts]
+    return bool(p) and (p[0].startswith(("4_", "6_")) or (p[0] == "1_biovariables" and len(p) > 1 and p[1].startswith("GCM_delta")))
 
 
 def runs():
@@ -187,12 +211,15 @@ def out_dir(cfg, *parts, shared=False):
     .../elisa/Crop_suitability/outputs), one sub-folder per step: 0_masks_ecearth3, 1_biovariables/<variant>, ...
     Outside the default grid under grid_<CROP_GRID>/; shared=True: the folder of the default grid, for the outputs
     that do not depend on the grid (2.c, per HWSD soil unit). Outside the ERA5 reference (CROP_REF) under ref_<ref>/,
-    except the folders that do not depend on the climate (REF_FREE: masks, soil)."""
+    except the folders that do not depend on the climate (REF_FREE: masks, soil). Outside the default scenario set of
+    the grid (CROP_SCEN) under scen_<set>/, for the folders that depend on the scenarios (_scenario_dependent)."""
     root = Path(cfg.get("out_root") or PROJECT_ROOT / "outputs")
     if CROP_GRID != "ecearth3" and not shared:
         root = root / f"grid_{CROP_GRID}"
     if CROP_REF != "era5" and not shared and not (parts and str(parts[0]).startswith(REF_FREE)):
         root = root / f"ref_{CROP_REF}"
+    if CROP_SCEN != DEFAULT_SCEN.get(CROP_GRID) and not shared and _scenario_dependent(parts):
+        root = root / f"scen_{CROP_SCEN}"
     d = root.joinpath(*parts)
     d.mkdir(parents=True, exist_ok=True)
     return d
