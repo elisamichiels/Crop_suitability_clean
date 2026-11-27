@@ -165,11 +165,13 @@ def hwsd_connect(path):
     return pyodbc.connect(r"DRIVER={Microsoft Access Driver (*.mdb, *.accdb)};DBQ=" + str(path) + ";")
 
 
-def out_dir(cfg, *parts):
+def out_dir(cfg, *parts, shared=False):
     """Output folder <out_root>/<parts> (created if needed). out_root comes from the config (BDAP:
-    .../elisa/Crop_suitability/outputs), one sub-folder per step: 0_masks_ecearth3, 1_biovariables/<variant>, ..."""
+    .../elisa/Crop_suitability/outputs), one sub-folder per step: 0_masks_ecearth3, 1_biovariables/<variant>, ...
+    Outside the default grid under grid_<CROP_GRID>/; shared=True: the folder of the default grid, for the outputs
+    that do not depend on the grid (2.c, per HWSD soil unit)."""
     root = Path(cfg.get("out_root") or PROJECT_ROOT / "outputs")
-    if CROP_GRID != "ecearth3":
+    if CROP_GRID != "ecearth3" and not shared:
         root = root / f"grid_{CROP_GRID}"
     d = root.joinpath(*parts)
     d.mkdir(parents=True, exist_ok=True)
