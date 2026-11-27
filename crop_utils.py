@@ -31,9 +31,12 @@ CONFIG_DIR = PROJECT_ROOT / "config"
 #   - the outputs go to <out_root>/grid_<grid>/ and the grid files are named ..._<grid>.nc instead of ..._ecearth3.nc;
 #   - a dataset '<name>@<grid>' of the configuration, when it exists, replaces '<name>' (era5, gcm_historical, runs);
 #   - the scenarios of the delta method are those of SCENARIOS[grid].
+# Grids: ecearth3 (AMOC runs, raw EC-Earth3), mri-esm2-0 (CMIP6 raw, WCRP mirror, gaussian ~1.1 deg), isimip3b (0.5 deg,
+# ISIMIP3b bias-adjusted MRI-ESM2-0; the training climate 'era5@isimip3b' is W5E5 v2.0, the reference of the ISIMIP3b
+# bias adjustment).
 CROP_GRID = os.environ.get("CROP_GRID", "ecearth3")
 GRID_TAG = CROP_GRID
-GCM_LABEL = {"ecearth3": "EC-Earth3", "mri-esm2-0": "MRI-ESM2-0"}.get(CROP_GRID, CROP_GRID)
+GCM_LABEL = {"ecearth3": "EC-Earth3", "mri-esm2-0": "MRI-ESM2-0", "isimip3b": "MRI-ESM2-0 (ISIMIP3b)"}.get(CROP_GRID, CROP_GRID)
 # per grid: the historical reference of the GCM (dataset, years) and the runs: label -> (dataset, years or None = whole
 # file); pairs (run, reference run) of the AMOC weakening (EC-Earth3 only)
 SCENARIOS = {
@@ -45,6 +48,12 @@ SCENARIOS = {
     "mri-esm2-0": {
         "reference": ("gcm_historical", ("1981", "2014")),   # the years of the ERA5 BIO (level of the delta)
         "runs": {f"{e}_{a}-{b}": (f"gcm_{e}", (a, b)) for e in ("ssp126", "ssp245", "ssp585")
+                 for a, b in (("2041", "2070"), ("2071", "2100"))},
+        "pairs": [],
+    },
+    "isimip3b": {
+        "reference": ("gcm_historical", ("1981", "2014")),
+        "runs": {f"{e}_{a}-{b}": (f"gcm_{e}", (a, b)) for e in ("ssp126", "ssp370", "ssp585")
                  for a, b in (("2041", "2070"), ("2071", "2100"))},
         "pairs": [],
     },
