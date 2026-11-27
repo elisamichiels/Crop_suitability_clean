@@ -284,7 +284,17 @@ def daily_gdd(tmin, tmax, tbase, tupper):
 
 def read_season(path):
     """Seasonal results (<project>PRMseason.OUT) as a DataFrame, one row per run (columns as in the file header,
-    plus sowing / end dates)."""
+    plus sowing / end dates). A value too large for its Fortran field is written with asterisks (e.g. '-9*********'):
+    it is read as NaN, as it stands in AquaCrop's output, and counted in the column 'overflow'."""
+    def num(x):
+        try:
+            return float(x)
+        except ValueError:
+            return np.nan
+
+    def day(d, m, y):
+        return date(int(y), int(m), int(d)) if np.isfinite([d, m, y]).all() else None
+
     text = Path(path).read_text(encoding="latin-1", errors="replace").replace("\r", "").splitlines()
     head = next(l for l in text if l.strip().startswith("RunNr")).split()
     rows = []
@@ -292,12 +302,13 @@ def read_season(path):
         if l.strip().startswith("Tot("):
             run = int(re.search(r"Tot\((\d+)\)", l).group(1))
             vals = l.split(")", 1)[1].split()
-            rows.append([run] + [float(x) for x in vals[:len(head) - 1]] + [" ".join(vals[len(head) - 1:])])
-    df = pd.DataFrame(rows, columns=head + ["project"])
+            nums = vals[:len(head) - 1]
+            rows.append([run] + [num(x) for x in nums] + [" ".join(vals[len(head) - 1:]), sum("*" in x for x in nums)])
+    df = pd.DataFrame(rows, columns=head + ["project", "overflow"])
     if len(df):
-        df["start"] = [date(int(y), int(m), int(d)) for d, m, y in zip(df["Day1"], df["Month1"], df["Year1"])]
+        df["start"] = [day(d, m, y) for d, m, y in zip(df["Day1"], df["Month1"], df["Year1"])]
         if {"DayN", "MonthN", "YearN"} <= set(df.columns):
-            df["end"] = [date(int(y), int(m), int(d)) for d, m, y in zip(df["DayN"], df["MonthN"], df["YearN"])]
+            df["end"] = [day(d, m, y) for d, m, y in zip(df["DayN"], df["MonthN"], df["YearN"])]
     return df
 
 
